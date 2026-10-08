@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visor de Mortalidad por Cáncer — Región de Ñuble</title>
+  <meta name="description" content="Defunciones por neoplasias en la Región de Ñuble, 2019–2025. Datos agregados.">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <a class="saltar" href="#resultados">Ir a los resultados</a>
+
+  <header class="cabecera">
+    <div class="contenedor">
+      <p class="institucion">SEREMI de Salud Región de Ñuble</p>
+      <h1>Visor de Mortalidad por Cáncer — Región de Ñuble</h1>
+      <p class="subtitulo">Defunciones por neoplasias, 2019–2025</p>
+      <p class="cabecera-datos">
+        <span class="aviso-preliminar"><strong>2024 y 2025: años preliminares</strong></span>
+        <span class="actualizacion" id="c-actualizacion"></span>
+      </p>
+    </div>
+  </header>
+
+  <main class="contenedor">
+    <details class="nota-metodologica" id="como-leer">
+      <summary><h2 id="titulo-nota">¿Cómo leer estos datos?</h2></summary>
+      <ul>
+        <li>Las tasas corresponden a defunciones por 100.000 habitantes (tasa bruta).</li>
+        <li>En las patologías de un solo sexo (por ejemplo, mama o próstata) la tasa se calcula sobre la población femenina o masculina.</li>
+        <li>2024 y 2025 son años con información preliminar; se marcan con *.</li>
+      </ul>
+    </details>
+
+    <h2 class="solo-lectores" id="titulo-filtros">Filtros</h2>
+    <div class="filtros-resumen" id="filtros-resumen">
+      <p class="filtros-resumen-texto" id="filtros-resumen-texto"></p>
+      <button type="button" class="boton boton-secundario" id="b-filtros" aria-expanded="false" aria-controls="filtros">Cambiar filtros</button>
+    </div>
+    <form id="filtros" class="filtros" aria-labelledby="titulo-filtros" onsubmit="return false">
+      <div class="campo">
+        <label for="f-tipo">Tipo de neoplasia</label>
+        <select id="f-tipo"></select>
+      </div>
+      <div class="campo campo-ancho">
+        <label for="f-patologia">Patología</label>
+        <select id="f-patologia"></select>
+      </div>
+      <div class="campo">
+        <label for="f-periodo">Año</label>
+        <select id="f-periodo"></select>
+      </div>
+      <div class="campo">
+        <label for="f-nivel">Nivel territorial</label>
+        <select id="f-nivel">
+          <option value="region">Región</option>
+          <option value="provincia">Provincia</option>
+          <option value="comuna">Comuna</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="f-territorio">Territorio</label>
+        <select id="f-territorio"></select>
+      </div>
+      <fieldset class="campo">
+        <legend>Sexo</legend>
+        <div class="segmentado" id="f-sexo">
+          <label><input type="radio" name="sexo" value="ambos" checked> Ambos</label>
+          <label><input type="radio" name="sexo" value="hombres"> Hombres</label>
+          <label><input type="radio" name="sexo" value="mujeres"> Mujeres</label>
+        </div>
+      </fieldset>
+    </form>
+
+    <p id="estado" class="estado" role="status" aria-live="polite">Cargando datos…</p>
+
+    <section id="resultados" class="resultado" aria-labelledby="i-titulo" hidden>
+      <h2 class="resultado-titulo" id="i-titulo"></h2>
+      <p class="resultado-preliminar" id="i-preliminar" hidden>* Incluye información preliminar (2024 y 2025).</p>
+      <div class="cifras">
+        <div class="cifra" id="c-n">
+          <span class="cifra-titulo">Defunciones</span>
+          <span class="cifra-valor" id="i-n">—</span>
+          <span class="cifra-nota" id="i-n-nota"></span>
+        </div>
+        <div class="cifra" id="c-tasa">
+          <span class="cifra-titulo">Tasa por 100.000 habitantes</span>
+          <span class="cifra-valor" id="i-tasa">—</span>
+          <span class="cifra-nota" id="i-tasa-nota"></span>
+        </div>
+      </div>
+    </section>
+
+    <div id="vistas" class="vistas" hidden>
+      <section class="vista vista-ancha" aria-labelledby="t-evolucion">
+        <div class="vista-cabecera">
+          <h2 id="t-evolucion">Evolución temporal</h2>
+          <div class="metrica" role="group" aria-label="Indicador del gráfico de evolución" data-vista="evolucion"></div>
+        </div>
+        <p class="vista-descripcion" id="d-evolucion"></p>
+        <div class="grafico" id="g-evolucion"></div>
+        <details><summary>Ver datos</summary><div class="tabla-contenedor" id="tb-evolucion"></div></details>
+      </section>
+
+      <section class="vista vista-ancha" aria-labelledby="t-territorio">
+        <div class="vista-cabecera">
+          <h2 id="t-territorio">Distribución territorial</h2>
+          <div class="metrica" role="group" aria-label="Indicador del gráfico territorial" data-vista="territorio"></div>
+        </div>
+        <p class="vista-descripcion" id="d-territorio"></p>
+        <div class="grafico" id="g-territorio"></div>
+        <details><summary>Ver datos</summary><div class="tabla-contenedor" id="tb-territorio"></div></details>
+      </section>
+
+      <section class="vista" aria-labelledby="t-sexo">
+        <div class="vista-cabecera">
+          <h2 id="t-sexo">Sexo</h2>
+          <div class="metrica" role="group" aria-label="Indicador del gráfico por sexo" data-vista="sexo"></div>
+        </div>
+        <p class="vista-descripcion" id="d-sexo"></p>
+        <div class="grafico" id="g-sexo"></div>
+        <details><summary>Ver datos</summary><div class="tabla-contenedor" id="tb-sexo"></div></details>
+      </section>
+
+      <section class="vista" aria-labelledby="t-edad">
+        <div class="vista-cabecera">
+          <h2 id="t-edad">Edad</h2>
+          <div class="metrica" role="group" aria-label="Indicador del gráfico por edad" data-vista="edad"></div>
+        </div>
+        <p class="vista-descripcion" id="d-edad"></p>
+        <div class="grafico" id="g-edad"></div>
+        <details><summary>Ver datos</summary><div class="tabla-contenedor" id="tb-edad"></div></details>
+      </section>
+
+      <section class="vista vista-ancha" aria-labelledby="t-patologias">
+        <div class="vista-cabecera">
+          <h2 id="t-patologias">Principales patologías</h2>
+          <div class="metrica" role="group" aria-label="Indicador del gráfico de patologías" data-vista="patologias"></div>
+        </div>
+        <p class="vista-descripcion" id="d-patologias"></p>
+        <div class="grafico" id="g-patologias"></div>
+        <details><summary>Ver datos</summary><div class="tabla-contenedor" id="tb-patologias"></div></details>
+      </section>
+
+      <section class="vista vista-ancha" aria-labelledby="t-tabla">
+        <div class="vista-cabecera">
+          <h2 id="t-tabla">Tabla detallada</h2>
+          <div class="tabla-controles">
+            <label for="f-desglose">Desglose por</label>
+            <select id="f-desglose">
+              <option value="anio">Año</option>
+              <option value="territorio">Territorio</option>
+              <option value="sexo">Sexo</option>
+              <option value="edad">Grupo de edad</option>
+              <option value="patologia">Patología</option>
+            </select>
+            <button type="button" id="b-descargar" class="boton">Descargar CSV</button>
+          </div>
+        </div>
+        <p class="vista-descripcion" id="d-tabla"></p>
+        <div class="tabla-contenedor" id="tb-detalle"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      <p><strong>Fuentes:</strong> defunciones, DEIS (Departamento de Estadísticas e Información de Salud);
+        población, INE (población contenida en la base maestra).</p>
+      <p id="p-denominador"></p>
+      <p id="p-ajustada"></p>
+      <p><strong>Clasificación:</strong> tumores malignos C00–C97; neoplasias no malignas D00–D48 (in situ D00–D09,
+        benignas D10–D36, comportamiento incierto o desconocido D37–D48). Grupos de edad quinquenales; 80+ incluye
+        80 años y más.</p>
+      <p><strong>Elaborado por:</strong> SEREMI de Salud Región de Ñuble. Unidad responsable y datos de contacto:
+        <em>pendiente de definición</em>.</p>
+      <p id="p-generado"></p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
