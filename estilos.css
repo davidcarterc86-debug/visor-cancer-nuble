@@ -102,11 +102,7 @@ summary:focus-visible { outline: 3px solid #f0b429; outline-offset: 2px; }
 .cifra-valor { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cifra-nota { font-size: .8rem; color: var(--texto-suave); }
 .cifra-nota:empty { display: none; }
-.aviso-tasas {
-  margin: 0 0 10px; padding: 8px 12px; font-size: .9rem; color: var(--texto); background: var(--preliminar-fondo);
-  border-left: 4px solid var(--preliminar); border-radius: 0 var(--radio) var(--radio) 0;
-}
-.aviso-tasas strong { color: var(--preliminar); }
+.leyenda-simbolos { margin: -4px 0 10px; font-size: .85rem; color: var(--texto-suave); }
 
 /* ---------- vistas */
 .vistas { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 32px; }

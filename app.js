@@ -512,10 +512,10 @@
     const enTasa = estado.metricas.patologias === 'tasa';
     const pats = ordenarPorMetrica(itemsPatologia(true), estado.metricas.patologias);
     const haySexoUnico = patologiasDelTipo(M.dim, estado.tipo).some((s) => s.sexo_indicador);
-    // Con «Tasa bruta» y patologías de un solo sexo, la advertencia de denominadores se muestra aparte, sobre el gráfico.
-    $('a-patologias').hidden = !(enTasa && haySexoUnico);
+    // Leyenda de las marcas ♀ / ♂, sobre el gráfico, solo si el tipo seleccionado tiene patologías de un solo sexo.
+    $('l-patologias').hidden = !haySexoUnico;
     dibujar('patologias', pats, 'horizontal', `Patologías del tipo seleccionado, ${contexto(false, false, false).replace(/^[^·]*· /, '')} `
-      + `Ordenadas por ${enTasa ? 'tasa bruta' : 'número de defunciones'}.${haySexoUnico ? ' ♀ y ♂: patologías de un solo sexo.' : ''}`, 'Patología');
+      + `Ordenadas por ${enTasa ? 'tasa bruta' : 'número de defunciones'}.`, 'Patología');
     dibujarTablaDetalle();
   }
 
