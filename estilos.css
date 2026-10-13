@@ -96,12 +96,17 @@ summary:focus-visible { outline: 3px solid #f0b429; outline-offset: 2px; }
 .resultado-titulo { margin: 0; font-size: clamp(1.1rem, 2.2vw, 1.4rem); color: var(--institucional); overflow-wrap: anywhere; }
 .resultado-preliminar { margin: 4px 0 0; font-size: .85rem; color: var(--preliminar); }
 .cifras { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; max-width: 720px; }
+@media (min-width: 761px) { .cifras { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1000px; } }
 .cifra { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 14px; background: var(--institucional-claro); border-radius: var(--radio); }
 .cifra-titulo { font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--texto-suave); font-weight: 600; }
 .cifra-valor { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cifra-nota { font-size: .8rem; color: var(--texto-suave); }
 .cifra-nota:empty { display: none; }
-.vista-descripcion.aviso { color: var(--texto); border-left: 3px solid var(--preliminar); padding-left: 8px; }
+.aviso-tasas {
+  margin: 0 0 10px; padding: 8px 12px; font-size: .9rem; color: var(--texto); background: var(--preliminar-fondo);
+  border-left: 4px solid var(--preliminar); border-radius: 0 var(--radio) var(--radio) 0;
+}
+.aviso-tasas strong { color: var(--preliminar); }
 
 /* ---------- vistas */
 .vistas { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 32px; }

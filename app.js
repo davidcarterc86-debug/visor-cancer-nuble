@@ -15,6 +15,8 @@
   };
   const POBLACION_REFERENCIA = { F: 'población femenina', M: 'población masculina' };
   const ORDEN_ESPERADO = ['periodos', 'territorios', 'sexos', 'selecciones', 'edades'];
+  const ORDEN_AJUSTADOS = ['periodos', 'territorios', 'selecciones'];
+  const ORDEN_SEXOS_AJUSTADOS = ['periodos', 'selecciones'];
 
   // =====================================================================================  modelo (sin DOM)
   function interpretar(c) {
@@ -46,8 +48,30 @@
       const c = datos.valores[pos('periodos', per)][pos('territorios', ter)][pos('sexos', sexo)][pos('selecciones', sel)][pos('edades', edad || 'total')];
       return interpretar(c);
     }
-    return { meta: datos.metadatos, dim, ids, territorio, seleccion, celda };
+    // Tasa ajustada por edad: ya calculada en el archivo (solo «todas las edades»; sin dimensión de sexo). Se lee tal cual.
+    const hayAjustadas = Array.isArray(datos.valores_ajustados) && Array.isArray(datos.sexos_ajustados);
+    if (hayAjustadas && (JSON.stringify(datos.metadatos.orden_valores_ajustados) !== JSON.stringify(ORDEN_AJUSTADOS)
+      || JSON.stringify(datos.metadatos.orden_sexos_ajustados) !== JSON.stringify(ORDEN_SEXOS_AJUSTADOS))) {
+      throw new Error('El orden de las tasas ajustadas del archivo de datos no es el esperado.');
+    }
+    /** { tasa, sexos } de la selección en el período y territorio, o null si el archivo no trae tasas ajustadas.
+     *  sexos ∈ ambos | mujeres | hombres: el conjunto con que se calculó (clasificación fija de la selección). */
+    function ajustada(per, ter, sel) {
+      if (!hayAjustadas) return null;
+      const tasa = datos.valores_ajustados[pos('periodos', per)][pos('territorios', ter)][pos('selecciones', sel)];
+      const sexos = datos.sexos_ajustados[pos('periodos', per)][pos('selecciones', sel)];
+      if (typeof tasa !== 'number' || !Object.prototype.hasOwnProperty.call(NOMBRE_SEXO, sexos)) {
+        throw new Error('Tasa ajustada con formato inesperado en los datos.');
+      }
+      return { tasa, sexos };
+    }
+    return { meta: datos.metadatos, dim, ids, territorio, seleccion, celda, hayAjustadas, ajustada };
   }
+
+  /** La tasa ajustada solo se muestra con el filtro de sexo para el que se calculó (ambos sexos, o el sexo del sitio).
+   *  Con otro filtro no existe: devuelve null y no se inventa una tasa por sexo. */
+  function ajustadaVisible(aj, sexoFiltro) { return aj !== null && aj.sexos === sexoFiltro ? aj.tasa : null; }
+  function textoTasaAjustada(v) { return v === null ? '—' : fmtTasa.format(v); }
 
   const fmtEntero = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
   const fmtTasa = new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -149,6 +173,7 @@
     interpretar, crearModelo, textoN, textoTasa, textoMetrica, valorMetrica, etiquetaPeriodo, esPreliminar,
     contienePreliminar, ordenarPorMetrica, opcionesTipo, opcionesPatologia, patologiasDelTipo, seleccionEfectiva,
     comunasDeVista, periodoConMarca, nombreCorto, tituloResultado, marcaSexoIndicador, NOMBRE_SEXO,
+    ajustadaVisible, textoTasaAjustada,
   };
   if (typeof module !== 'undefined' && module.exports) { module.exports = Modelo; return; }
 
@@ -205,7 +230,7 @@
     $('b-descargar').addEventListener('click', descargarCsv);
     for (const grupo of document.querySelectorAll('.metrica')) {
       const vista = grupo.dataset.vista;
-      for (const [valor, texto] of [['n', 'Defunciones'], ['tasa', 'Tasa']]) {
+      for (const [valor, texto] of [['n', 'Defunciones'], ['tasa', 'Tasa bruta']]) {
         const b = el('button', { type: 'button', 'aria-pressed': String(estado.metricas[vista] === valor), 'data-valor': valor }, texto);
         b.addEventListener('click', () => {
           estado.metricas[vista] = valor;
@@ -284,13 +309,26 @@
     const vT = $('i-tasa');
     vT.textContent = textoTasa(c);
     $('i-tasa-nota').textContent = sel.sexo_indicador ? `Calculada sobre la ${POBLACION_REFERENCIA[sel.sexo_indicador]}.` : '';
+    const aj = M.ajustada(estado.periodo, estado.territorio, sel.id);
+    const vAj = ajustadaVisible(aj, estado.sexo);
+    $('i-tasa-ajustada').textContent = textoTasaAjustada(vAj);
+    $('i-tasa-ajustada-nota').textContent = notaAjustada(aj, vAj);
     dibujarVistas();
     guardarEnUrl();
     const est = $('estado');
     est.classList.add('solo-lectores');
     est.textContent = `Mostrando ${titulo.replace(/\*$/, '')}`
       + `${contienePreliminar(M.meta, estado.periodo) ? ' (incluye información preliminar)' : ''}. Defunciones: ${textoN(c)}.`
-      + ` Tasa por 100.000 habitantes: ${textoTasa(c)}.`;
+      + ` Tasa bruta por 100.000 habitantes: ${textoTasa(c)}.`
+      + ` Tasa ajustada por edad por 100.000 habitantes: ${vAj === null ? `no disponible. ${notaAjustada(aj, vAj)}` : textoTasaAjustada(vAj)}.`;
+  }
+
+  const FILTRO_SEXO = { ambos: 'Ambos', hombres: 'Hombres', mujeres: 'Mujeres' };
+  function notaAjustada(aj, valor) {
+    if (aj === null) return 'No disponible en este archivo de datos.';
+    if (valor === null) return `Disponible solo con el filtro de sexo «${FILTRO_SEXO[aj.sexos]}», para el que se calcula.`;
+    if (aj.sexos === 'ambos') return 'Estandarización directa, ambos sexos.';
+    return `Solo ${aj.sexos}: población y ponderadores ${aj.sexos === 'mujeres' ? 'femeninos' : 'masculinos'}.`;
   }
 
   function etiquetaSeleccion(sel) {
@@ -379,13 +417,15 @@
     return svg;
   }
 
-  function tablaDatos(items, caption, encabezadoCategoria) {
-    const t = el('table');
-    t.append(el('caption', {}, caption));
+  /** Con idDescripcion, la tabla se rotula con ese texto ya visible encima (aria-labelledby) y no repite el título en un
+   *  caption; sin él, el título va en el caption. */
+  function tablaDatos(items, caption, encabezadoCategoria, idDescripcion) {
+    const t = el('table', { 'aria-labelledby': idDescripcion || null });
+    if (!idDescripcion) t.append(el('caption', {}, caption));
     const thead = el('thead');
     const trh = el('tr');
     trh.append(el('th', { scope: 'col' }, encabezadoCategoria), el('th', { scope: 'col', class: 'num' }, 'Defunciones'),
-      el('th', { scope: 'col', class: 'num' }, 'Tasa por 100.000'));
+      el('th', { scope: 'col', class: 'num' }, 'Tasa bruta por 100.000'));
     thead.append(trh);
     const tbody = el('tbody');
     for (const it of items) {
@@ -401,7 +441,7 @@
     return t;
   }
 
-  function nombreMetrica(m) { return m === 'tasa' ? 'tasa por 100.000 habitantes' : 'número de defunciones'; }
+  function nombreMetrica(m) { return m === 'tasa' ? 'tasa bruta por 100.000 habitantes' : 'número de defunciones'; }
 
   function dibujar(idVista, items, tipoGrafico, descripcion, categoria, opciones) {
     const metrica = estado.metricas[idVista];
@@ -472,13 +512,10 @@
     const enTasa = estado.metricas.patologias === 'tasa';
     const pats = ordenarPorMetrica(itemsPatologia(true), estado.metricas.patologias);
     const haySexoUnico = patologiasDelTipo(M.dim, estado.tipo).some((s) => s.sexo_indicador);
-    const avisoTasa = enTasa && haySexoUnico
-      ? ' Atención: ♀ tasa calculada sobre la población femenina y ♂ sobre la población masculina; las demás, sobre la '
-        + 'población total. Los denominadores difieren, por lo que estas tasas no son directamente comparables entre sí.'
-      : haySexoUnico ? ' ♀ y ♂: patologías de un solo sexo; su tasa usa la población femenina o masculina.' : '';
+    // Con «Tasa bruta» y patologías de un solo sexo, la advertencia de denominadores se muestra aparte, sobre el gráfico.
+    $('a-patologias').hidden = !(enTasa && haySexoUnico);
     dibujar('patologias', pats, 'horizontal', `Patologías del tipo seleccionado, ${contexto(false, false, false).replace(/^[^·]*· /, '')} `
-      + `Ordenadas por ${enTasa ? 'tasa' : 'número de defunciones'}.${avisoTasa}`, 'Patología');
-    $('d-patologias').classList.toggle('aviso', enTasa && haySexoUnico);
+      + `Ordenadas por ${enTasa ? 'tasa bruta' : 'número de defunciones'}.${haySexoUnico ? ' ♀ y ♂: patologías de un solo sexo.' : ''}`, 'Patología');
     dibujarTablaDetalle();
   }
 
@@ -515,7 +552,7 @@
   function dibujarTablaDetalle() {
     const d = contextoDetalle();
     $('d-tabla').textContent = d;
-    $('tb-detalle').replaceChildren(tablaDatos(filasDetalle(), d, NOMBRE_DESGLOSE[estado.desglose]));
+    $('tb-detalle').replaceChildren(tablaDatos(filasDetalle(), d, NOMBRE_DESGLOSE[estado.desglose], 'd-tabla'));
   }
 
   function csvCampo(v) {
@@ -524,6 +561,8 @@
   }
   function descargarCsv() {
     const sel = M.seleccion.get(seleccionActual());
+    const aj = M.ajustada(estado.periodo, estado.territorio, sel.id);
+    const vAj = ajustadaVisible(aj, estado.sexo);
     const lineas = [
       ['Visor de Mortalidad por Cáncer — Región de Ñuble'],
       ['Selección', etiquetaSeleccion(sel)],
@@ -532,11 +571,13 @@
       ['Sexo', NOMBRE_SEXO[estado.sexo]],
       ['Desglose', NOMBRE_DESGLOSE[estado.desglose]],
       ['Tasa', 'Tasa bruta por 100.000 habitantes.'],
+      ['Tasa ajustada por edad por 100.000 habitantes (selección, período, territorio y sexo indicados; todas las edades)',
+        vAj === null ? `No disponible. ${notaAjustada(aj, vAj)}` : textoTasaAjustada(vAj)],
       ['Preliminar', M.meta.nota_preliminar],
       ['Fuente', `Defunciones: ${M.meta.fuente_defunciones}. Población: ${M.meta.fuente_poblacion}.`],
       ['Datos generados', M.meta.generado],
       [],
-      [NOMBRE_DESGLOSE[estado.desglose], 'Defunciones', 'Tasa por 100.000', 'Observación'],
+      [NOMBRE_DESGLOSE[estado.desglose], 'Defunciones', 'Tasa bruta por 100.000', 'Observación'],
     ];
     for (const f of filasDetalle()) {
       lineas.push([f.etiqueta.trim(), f.celda.n, textoTasa(f.celda), f.preliminar ? 'Preliminar' : '']);
@@ -570,7 +611,10 @@
     const [a, m, d] = String(M.meta.generado).slice(0, 10).split('-');
     $('c-actualizacion').textContent = `Datos actualizados al ${d}-${m}-${a}`;
     $('p-denominador').replaceChildren(el('strong', {}, 'Patologías de un solo sexo: '), M.meta.nota_denominador);
-    $('p-ajustada').replaceChildren(el('strong', {}, 'Tasa ajustada por edad: '), M.meta.tasa_ajustada);
+    // Con tasas ajustadas en el archivo se describe su método; el texto «tasa_ajustada» de los metadatos es anterior.
+    $('p-ajustada').replaceChildren(el('strong', {}, 'Tasa ajustada por edad: '), M.hayAjustadas
+      ? `${M.meta.tasa_ajustada_metodo} El origen de la población estándar de los ponderadores está en revisión documental.`
+      : M.meta.tasa_ajustada);
     $('p-generado').textContent = `Datos generados el ${new Date(M.meta.generado).toLocaleString('es-CL')}.`;
     $('resultados').hidden = false;
     $('vistas').hidden = false;

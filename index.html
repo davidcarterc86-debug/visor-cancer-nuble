@@ -84,9 +84,14 @@
           <span class="cifra-nota" id="i-n-nota"></span>
         </div>
         <div class="cifra" id="c-tasa">
-          <span class="cifra-titulo">Tasa por 100.000 habitantes</span>
+          <span class="cifra-titulo">Tasa bruta por 100.000 habitantes</span>
           <span class="cifra-valor" id="i-tasa">—</span>
           <span class="cifra-nota" id="i-tasa-nota"></span>
+        </div>
+        <div class="cifra" id="c-tasa-ajustada">
+          <span class="cifra-titulo">Tasa ajustada por edad por 100.000 habitantes</span>
+          <span class="cifra-valor" id="i-tasa-ajustada">—</span>
+          <span class="cifra-nota" id="i-tasa-ajustada-nota"></span>
         </div>
       </div>
     </section>
@@ -138,6 +143,9 @@
           <div class="metrica" role="group" aria-label="Indicador del gráfico de patologías" data-vista="patologias"></div>
         </div>
         <p class="vista-descripcion" id="d-patologias"></p>
+        <p class="aviso-tasas" id="a-patologias" role="note" hidden><strong>Importante:</strong> las tasas utilizan la población
+          total o la población del sexo correspondiente, según la patología (♀ femenina, ♂ masculina). Por eso, no todas son
+          directamente comparables entre sí.</p>
         <div class="grafico" id="g-patologias"></div>
         <details><summary>Ver datos</summary><div class="tabla-contenedor" id="tb-patologias"></div></details>
       </section>
