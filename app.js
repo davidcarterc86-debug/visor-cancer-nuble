@@ -146,6 +146,13 @@
     return patologias.filter((s) => s.tipo === tipo.tipo);
   }
 
+  /** Patologías clasificadas para un sexo en el archivo (sexo_indicador: F → mujeres, M → hombres), en su orden. No se
+   *  infiere nada de las defunciones observadas. */
+  const INDICADOR_DE_SEXO = { mujeres: 'F', hombres: 'M' };
+  function patologiasPorSexo(dim, sexo) {
+    return dim.selecciones.filter((s) => s.nivel === 'patologia' && s.sexo_indicador && s.sexo_indicador === INDICADOR_DE_SEXO[sexo]);
+  }
+
   /** Opciones del filtro «Patología»: «Todas» (= total del tipo) y las patologías del tipo, con su etiqueta pública. */
   function opcionesPatologia(dim, tipoValor) {
     if (tipoValor.startsWith('sub:')) {
@@ -173,7 +180,7 @@
     interpretar, crearModelo, textoN, textoTasa, textoMetrica, valorMetrica, etiquetaPeriodo, esPreliminar,
     contienePreliminar, ordenarPorMetrica, opcionesTipo, opcionesPatologia, patologiasDelTipo, seleccionEfectiva,
     comunasDeVista, periodoConMarca, nombreCorto, tituloResultado, marcaSexoIndicador, NOMBRE_SEXO,
-    ajustadaVisible, textoTasaAjustada,
+    ajustadaVisible, textoTasaAjustada, patologiasPorSexo,
   };
   if (typeof module !== 'undefined' && module.exports) { module.exports = Modelo; return; }
 
@@ -228,7 +235,7 @@
     }
     $('f-desglose').addEventListener('change', () => { estado.desglose = $('f-desglose').value; dibujarTablaDetalle(); guardarEnUrl(); });
     $('b-descargar').addEventListener('click', descargarCsv);
-    for (const grupo of document.querySelectorAll('.metrica')) {
+    for (const grupo of document.querySelectorAll('.metrica[data-vista]')) {   // «Patologías según sexo» tiene los suyos
       const vista = grupo.dataset.vista;
       for (const [valor, texto] of [['n', 'Defunciones'], ['tasa', 'Tasa bruta']]) {
         const b = el('button', { type: 'button', 'aria-pressed': String(estado.metricas[vista] === valor), 'data-valor': valor }, texto);
@@ -519,6 +526,78 @@
     dibujarTablaDetalle();
   }
 
+  // ---------- «Patologías según sexo»: sección independiente. Usa solo sus propios filtros (sexo y patología), no lee ni
+  // cambia los filtros generales ni la dirección, y no se redibuja con ellos. Región de Ñuble, por año 2019-2025.
+  const estadoSexoPat = { sexo: 'mujeres', patologia: null, metrica: 'n' };
+  const NOMBRE_METRICA_SEXOPAT = { n: 'número de defunciones', ajustada: 'tasa ajustada por edad por 100.000' };
+
+  function configurarSexoPat() {
+    const opciones = () => {
+      const pats = patologiasPorSexo(M.dim, estadoSexoPat.sexo);
+      estadoSexoPat.patologia = pats.length
+        ? llenarSelect($('fs-patologia'), pats.map((s) => ({ valor: s.id, etiqueta: s.etiqueta })), estadoSexoPat.patologia) : null;
+    };
+    if (!patologiasPorSexo(M.dim, 'mujeres').length && !patologiasPorSexo(M.dim, 'hombres').length) { $('v-sexopat').hidden = true; return; }
+    $('fs-sexo').value = estadoSexoPat.sexo;
+    opciones();
+    $('fs-sexo').addEventListener('change', () => { estadoSexoPat.sexo = $('fs-sexo').value; estadoSexoPat.patologia = null; opciones(); dibujarSexoPat(); });
+    $('fs-patologia').addEventListener('change', () => { estadoSexoPat.patologia = $('fs-patologia').value; dibujarSexoPat(); });
+    const grupo = $('m-sexopat');
+    const metricas = [['n', 'Defunciones']].concat(M.hayAjustadas ? [['ajustada', 'Tasa ajustada por edad']] : []);
+    for (const [valor, texto] of metricas) {
+      const b = el('button', { type: 'button', 'aria-pressed': String(estadoSexoPat.metrica === valor), 'data-valor': valor }, texto);
+      b.addEventListener('click', () => {
+        estadoSexoPat.metrica = valor;
+        for (const x of grupo.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x.dataset.valor === valor));
+        dibujarSexoPat();
+      });
+      grupo.append(b);
+    }
+  }
+
+  function dibujarSexoPat() {
+    const cont = $('g-sexopat');
+    if (!estadoSexoPat.patologia) { cont.replaceChildren(); $('tb-sexopat').replaceChildren(); $('d-sexopat').textContent = 'Sin patologías para este sexo.'; return; }
+    const sel = M.seleccion.get(estadoSexoPat.patologia);
+    const sx = estadoSexoPat.sexo;
+    const ter = '16';
+    const ajustar = estadoSexoPat.metrica === 'ajustada';
+    // Por período: defunciones del sexo seleccionado (celda del archivo) y tasa ajustada del archivo (valores_ajustados),
+    // calculada para estas patologías con ese mismo sexo (sexos_ajustados). No se recalcula nada.
+    const fila = (per) => ({ n: M.celda(per, ter, sx, sel.id).n, ajustada: ajustadaVisible(M.ajustada(per, ter, sel.id), sx) });
+    const anios = M.dim.periodos.filter((p) => p !== M.meta.periodo_completo);
+    const filas = anios.map((p) => ({ per: p, ...fila(p) }));
+    const total = fila(M.meta.periodo_completo);
+    const poblacion = sx === 'mujeres' ? 'mujeres' : 'hombres';
+    $('d-sexopat').textContent = `${nombreTerritorio(ter)} · ${NOMBRE_SEXO[sx]} · ${etiquetaSeleccion(sel)}. Por año, `
+      + `${ajustar ? `tasa ajustada por edad por 100.000 ${poblacion}` : `defunciones de ${poblacion}`}. `
+      + `${etiquetaPeriodo(M.meta, M.meta.periodo_completo)}: ${fmtEntero.format(total.n)} defunciones · tasa ajustada por edad `
+      + `${textoTasaAjustada(total.ajustada)} por 100.000 ${poblacion}.`;
+    if (ajustar && filas.some((f) => f.ajustada === null)) {
+      cont.replaceChildren(el('p', { class: 'sin-datos' }, 'Tasa ajustada no disponible para esta selección.'));
+    } else {
+      const items = filas.map((f) => ({ etiqueta: f.per, preliminar: esPreliminar(M.meta, f.per), celda: { n: f.n, tasa: f.ajustada } }));
+      const ancho = Math.max(280, Math.floor(cont.clientWidth || 760));
+      cont.replaceChildren(barrasVerticales(items, ajustar ? 'tasa' : 'n',
+        { descripcion: `${$('d-sexopat').textContent} Indicador: ${NOMBRE_METRICA_SEXOPAT[estadoSexoPat.metrica]}.`, ancho }));
+    }
+    const t = el('table', { 'aria-labelledby': 'd-sexopat' });
+    const trh = el('tr');
+    trh.append(el('th', { scope: 'col' }, 'Año'), el('th', { scope: 'col', class: 'num' }, 'Defunciones'),
+      el('th', { scope: 'col', class: 'num' }, `Tasa ajustada por edad por 100.000 ${poblacion}`));
+    const tbody = el('tbody');
+    for (const f of filas.concat([{ per: M.meta.periodo_completo, ...total }])) {
+      const th = el('th', { scope: 'row' }, String(f.per).replace('-', '–'));
+      if (esPreliminar(M.meta, f.per)) th.append(' ', el('span', { class: 'marca-preliminar' }, '(preliminar)'));
+      const tr = el('tr');
+      tr.append(th, el('td', { class: 'num' }, fmtEntero.format(f.n)), el('td', { class: 'num' }, textoTasaAjustada(f.ajustada)));
+      tbody.append(tr);
+    }
+    t.append(el('thead', {}), tbody);
+    t.querySelector('thead').append(trh);
+    $('tb-sexopat').replaceChildren(t);
+  }
+
   // ---------- tabla detallada y descarga
   function filasDetalle() {
     const sel = seleccionActual();
@@ -619,6 +698,8 @@
     $('resultados').hidden = false;
     $('vistas').hidden = false;
     actualizar();
+    configurarSexoPat();
+    dibujarSexoPat();
     document.body.dataset.estado = 'listo';
   }
 
@@ -634,7 +715,7 @@
   let temporizador = null;
   global.addEventListener('resize', () => {
     clearTimeout(temporizador);
-    temporizador = setTimeout(() => { if (M) dibujarVistas(); }, 150);
+    temporizador = setTimeout(() => { if (M) { dibujarVistas(); dibujarSexoPat(); } }, 150);
   });
   global.addEventListener('error', (ev) => {
     document.body.dataset.errorJs = ev.message;

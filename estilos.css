@@ -151,6 +151,8 @@ tr.destacada td { background: #fff7ed; font-weight: 600; }
 .tabla-controles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .tabla-controles label { font-weight: 600; font-size: .9rem; }
 .tabla-controles select { width: auto; }
+.controles-sexopat { margin-top: 10px; }
+.controles-sexopat select { max-width: 100%; }
 .boton { width: auto; background: var(--acento); color: #fff; border-color: var(--acento); font-weight: 600; cursor: pointer; }
 .boton:hover { background: var(--acento-oscuro); }
 

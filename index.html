@@ -148,6 +148,25 @@
         <details><summary>Ver datos</summary><div class="tabla-contenedor" id="tb-patologias"></div></details>
       </section>
 
+      <section class="vista vista-ancha" aria-labelledby="t-sexopat" id="v-sexopat">
+        <div class="vista-cabecera">
+          <h2 id="t-sexopat">Patologías según sexo</h2>
+          <div class="metrica" role="group" aria-label="Indicador del gráfico de patologías según sexo" id="m-sexopat"></div>
+        </div>
+        <div class="tabla-controles controles-sexopat">
+          <label for="fs-sexo">Sexo</label>
+          <select id="fs-sexo">
+            <option value="mujeres">Mujeres</option>
+            <option value="hombres">Hombres</option>
+          </select>
+          <label for="fs-patologia">Patología</label>
+          <select id="fs-patologia"></select>
+        </div>
+        <p class="vista-descripcion" id="d-sexopat"></p>
+        <div class="grafico" id="g-sexopat"></div>
+        <details><summary>Ver datos</summary><div class="tabla-contenedor" id="tb-sexopat"></div></details>
+      </section>
+
       <section class="vista vista-ancha" aria-labelledby="t-tabla">
         <div class="vista-cabecera">
           <h2 id="t-tabla">Tabla detallada</h2>
