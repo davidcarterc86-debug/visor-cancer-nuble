@@ -246,7 +246,7 @@
     $('b-descargar').addEventListener('click', descargarCsv);
     for (const grupo of document.querySelectorAll('.metrica[data-vista]')) {   // «Patologías según sexo» tiene los suyos
       const vista = grupo.dataset.vista;
-      for (const [valor, texto] of [['n', 'Defunciones'], ['tasa', vista === 'edad' ? 'Tasa específica por edad' : 'Tasa ajustada por edad']]) {
+      for (const [valor, texto] of [['n', 'Defunciones'], ['tasa', vista === 'edad' ? 'Tasa específica por edad' : 'Tasa ajustada']]) {
         const b = el('button', { type: 'button', 'aria-pressed': String(estado.metricas[vista] === valor), 'data-valor': valor }, texto);
         b.addEventListener('click', () => {
           estado.metricas[vista] = valor;
@@ -331,7 +331,7 @@
     est.classList.add('solo-lectores');
     est.textContent = `Mostrando ${titulo.replace(/\*$/, '')}`
       + `${contienePreliminar(M.meta, estado.periodo) ? ' (incluye información preliminar)' : ''}. Defunciones: ${textoN(c)}.`
-      + ` Tasa ajustada por edad por 100.000 habitantes: ${vAj === null ? `no disponible. ${notaAjustada(sel, aj)}` : textoTasaAjustada(vAj)}.`;
+      + ` Tasa ajustada por 100.000 habitantes: ${vAj === null ? `no disponible. ${notaAjustada(sel, aj)}` : textoTasaAjustada(vAj)}.`;
   }
 
   const FILTRO_SEXO = { ambos: 'Ambos', hombres: 'Hombres', mujeres: 'Mujeres' };
@@ -436,7 +436,7 @@
 
   /** Con idDescripcion, la tabla se rotula con ese texto ya visible encima (aria-labelledby) y no repite el título en un
    *  caption; sin él, el título va en el caption. */
-  const TASA_AJUSTADA_100K = 'Tasa ajustada por edad por 100.000';
+  const TASA_AJUSTADA_100K = 'Tasa ajustada por 100.000';
   const TASA_ESPECIFICA_100K = 'Tasa específica por edad por 100.000';
   const TASA_DESGLOSE_EDAD = 'Tasa por 100.000 (ajustada en «Todas las edades»; específica en cada grupo)';
   function tablaDatos(items, caption, encabezadoCategoria, idDescripcion, encabezadoTasa) {
@@ -463,7 +463,7 @@
 
   function nombreMetrica(m, vista) {
     if (m !== 'tasa') return 'número de defunciones';
-    return vista === 'edad' ? 'tasa específica por edad por 100.000 habitantes' : 'tasa ajustada por edad por 100.000 habitantes';
+    return vista === 'edad' ? 'tasa específica por edad por 100.000 habitantes' : 'tasa ajustada por 100.000 habitantes';
   }
 
   function dibujar(idVista, items, tipoGrafico, descripcion, categoria, opciones) {
@@ -539,14 +539,14 @@
     // Leyenda de las marcas ♀ / ♂, sobre el gráfico, solo si el tipo seleccionado tiene patologías de un solo sexo.
     $('l-patologias').hidden = !haySexoUnico;
     dibujar('patologias', pats, 'horizontal', `Patologías del tipo seleccionado, ${contexto(false, false, false).replace(/^[^·]*· /, '')} `
-      + `Ordenadas por ${enTasa ? 'tasa ajustada por edad' : 'número de defunciones'}.`, 'Patología');
+      + `Ordenadas por ${enTasa ? 'tasa ajustada' : 'número de defunciones'}.`, 'Patología');
     dibujarTablaDetalle();
   }
 
   // ---------- «Patologías según sexo»: sección independiente. Usa solo sus propios filtros (sexo y patología), no lee ni
   // cambia los filtros generales ni la dirección, y no se redibuja con ellos. Región de Ñuble, por año 2019-2025.
   const estadoSexoPat = { sexo: 'mujeres', patologia: null, metrica: 'n' };
-  const NOMBRE_METRICA_SEXOPAT = { n: 'número de defunciones', ajustada: 'tasa ajustada por edad por 100.000' };
+  const NOMBRE_METRICA_SEXOPAT = { n: 'número de defunciones', ajustada: 'tasa ajustada por 100.000' };
 
   function configurarSexoPat() {
     const opciones = () => {
@@ -560,7 +560,7 @@
     $('fs-sexo').addEventListener('change', () => { estadoSexoPat.sexo = $('fs-sexo').value; estadoSexoPat.patologia = null; opciones(); dibujarSexoPat(); });
     $('fs-patologia').addEventListener('change', () => { estadoSexoPat.patologia = $('fs-patologia').value; dibujarSexoPat(); });
     const grupo = $('m-sexopat');
-    const metricas = [['n', 'Defunciones']].concat(M.hayAjustadas ? [['ajustada', 'Tasa ajustada por edad']] : []);
+    const metricas = [['n', 'Defunciones']].concat(M.hayAjustadas ? [['ajustada', 'Tasa ajustada']] : []);
     for (const [valor, texto] of metricas) {
       const b = el('button', { type: 'button', 'aria-pressed': String(estadoSexoPat.metrica === valor), 'data-valor': valor }, texto);
       b.addEventListener('click', () => {
@@ -587,8 +587,8 @@
     const total = fila(M.meta.periodo_completo);
     const poblacion = sx === 'mujeres' ? 'mujeres' : 'hombres';
     $('d-sexopat').textContent = `${nombreTerritorio(ter)} · ${NOMBRE_SEXO[sx]} · ${etiquetaSeleccion(sel)}. Por año, `
-      + `${ajustar ? `tasa ajustada por edad por 100.000 ${poblacion}` : `defunciones de ${poblacion}`}. `
-      + `${etiquetaPeriodo(M.meta, M.meta.periodo_completo)}: ${fmtEntero.format(total.n)} defunciones · tasa ajustada por edad `
+      + `${ajustar ? `tasa ajustada por 100.000 ${poblacion}` : `defunciones de ${poblacion}`}. `
+      + `${etiquetaPeriodo(M.meta, M.meta.periodo_completo)}: ${fmtEntero.format(total.n)} defunciones · tasa ajustada `
       + `${textoTasaAjustada(total.ajustada)} por 100.000 ${poblacion}.`;
     if (ajustar && filas.some((f) => f.ajustada === null)) {
       cont.replaceChildren(el('p', { class: 'sin-datos' }, 'Tasa ajustada no disponible para esta selección.'));
@@ -601,7 +601,7 @@
     const t = el('table', { 'aria-labelledby': 'd-sexopat' });
     const trh = el('tr');
     trh.append(el('th', { scope: 'col' }, 'Año'), el('th', { scope: 'col', class: 'num' }, 'Defunciones'),
-      el('th', { scope: 'col', class: 'num' }, `Tasa ajustada por edad por 100.000 ${poblacion}`));
+      el('th', { scope: 'col', class: 'num' }, `Tasa ajustada por 100.000 ${poblacion}`));
     const tbody = el('tbody');
     for (const f of filas.concat([{ per: M.meta.periodo_completo, ...total }])) {
       const th = el('th', { scope: 'row' }, String(f.per).replace('-', '–'));
@@ -667,8 +667,8 @@
       ['Sexo', NOMBRE_SEXO[estado.sexo]],
       ['Desglose', NOMBRE_DESGLOSE[estado.desglose]],
       ['Tasa', estado.desglose === 'edad'
-        ? 'Tasa ajustada por edad por 100.000 habitantes en «Todas las edades»; tasa específica por edad en cada grupo de edad.'
-        : 'Tasa ajustada por edad por 100.000 habitantes (estandarización directa).'],
+        ? 'Tasa ajustada por 100.000 habitantes en «Todas las edades»; tasa específica por edad en cada grupo de edad.'
+        : 'Tasa ajustada por 100.000 habitantes (estandarización directa por edad).'],
       ['Método', M.meta.tasa_ajustada_metodo],
       ['Preliminar', M.meta.nota_preliminar],
       ['Fuente', `Defunciones: ${M.meta.fuente_defunciones}. Población: ${M.meta.fuente_poblacion}.`],
@@ -711,7 +711,7 @@
     $('c-actualizacion').textContent = `Datos actualizados al ${d}-${m}-${a}`;
     $('p-denominador').replaceChildren(el('strong', {}, 'Patologías de un solo sexo: '), M.meta.nota_denominador);
     // Con tasas ajustadas en el archivo se describe su método; el texto «tasa_ajustada» de los metadatos es anterior.
-    $('p-ajustada').replaceChildren(el('strong', {}, 'Tasa ajustada por edad: '), M.hayAjustadas
+    $('p-ajustada').replaceChildren(el('strong', {}, 'Tasa ajustada: '), M.hayAjustadas
       ? M.meta.tasa_ajustada_metodo
       : M.meta.tasa_ajustada);
     $('p-generado').textContent = `Datos generados el ${new Date(M.meta.generado).toLocaleString('es-CL')}.`;
