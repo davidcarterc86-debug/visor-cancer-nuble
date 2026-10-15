@@ -39,6 +39,10 @@ h1, h2 { line-height: 1.25; }
 .institucion { margin: 0 0 6px; color: #d6e2f0; font-size: .9rem; font-weight: 600; letter-spacing: .02em; }
 .subtitulo { margin: 4px 0 0; color: #d6e2f0; font-size: 1.05rem; }
 .cabecera-datos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 12px 0 0; }
+/* Logo institucional (LOGO_SEREMI.jpg) a la izquierda del bloque de títulos, sin deformarlo */
+.cabecera .contenedor { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 18px; }
+.cabecera .contenedor > :not(.logo-institucional) { grid-column: 2; }
+.logo-institucional { grid-column: 1; grid-row: 1 / span 4; align-self: start; height: 72px; width: auto; border-radius: 4px; }
 .aviso-preliminar {
   display: inline-block; padding: 4px 12px; border-radius: 999px;
   background: var(--preliminar-fondo); color: var(--preliminar); font-size: .9rem;
@@ -166,6 +170,8 @@ tr.destacada td { background: #fff7ed; font-weight: 600; }
   .campo-ancho { grid-column: auto; }
   .cifra-valor { font-size: 1.6rem; }
   .cabecera { padding: 18px 0 16px; }
+  .cabecera .contenedor { column-gap: 12px; }
+  .logo-institucional { height: 52px; }
 }
 /* Teléfono: filtros contraídos en un resumen con «Cambiar filtros» */
 @media (max-width: 599px) {
