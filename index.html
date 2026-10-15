@@ -26,8 +26,10 @@
     <details class="nota-metodologica" id="como-leer">
       <summary><h2 id="titulo-nota">¿Cómo leer estos datos?</h2></summary>
       <ul>
-        <li>Las tasas corresponden a defunciones por 100.000 habitantes (tasa bruta).</li>
-        <li>En las patologías de un solo sexo (por ejemplo, mama o próstata) la tasa se calcula sobre la población femenina o masculina.</li>
+        <li>Las tasas están ajustadas por edad (estandarización directa con la población estándar del INE) y se expresan por 100.000 habitantes. Permiten comparar territorios, años y sexos con distinta estructura de edad.</li>
+        <li>Con «Ambos» se usa la población estándar conjunta de ambos sexos; con «Hombres» o «Mujeres», la del sexo seleccionado.</li>
+        <li>En las patologías de un solo sexo (por ejemplo, mama o próstata) la tasa se calcula sobre la población femenina o masculina; con el sexo contrario no se calcula (—).</li>
+        <li>En el gráfico por edad, la tasa es específica de cada grupo de edad.</li>
         <li>2024 y 2025 son años con información preliminar; se marcan con *.</li>
       </ul>
     </details>
@@ -82,11 +84,6 @@
           <span class="cifra-titulo">Defunciones</span>
           <span class="cifra-valor" id="i-n">—</span>
           <span class="cifra-nota" id="i-n-nota"></span>
-        </div>
-        <div class="cifra" id="c-tasa">
-          <span class="cifra-titulo">Tasa bruta por 100.000 habitantes</span>
-          <span class="cifra-valor" id="i-tasa">—</span>
-          <span class="cifra-nota" id="i-tasa-nota"></span>
         </div>
         <div class="cifra" id="c-tasa-ajustada">
           <span class="cifra-titulo">Tasa ajustada por edad por 100.000 habitantes</span>

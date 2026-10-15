@@ -1,6 +1,8 @@
 /* Visor de Mortalidad por Cáncer — Región de Ñuble.
  *
- * Trabaja EXCLUSIVAMENTE con data/datos_cancer.json (agregados). Una celda es [n, tasa].
+ * Trabaja EXCLUSIVAMENTE con data/datos_cancer.json (agregados). Una celda es [n, tasa]; la tasa de las celdas de
+ * todas las edades es bruta y NO se muestra: las vistas muestran la tasa ajustada por edad de valores_ajustados
+ * (por sexo del filtro). En los grupos de edad se muestra la tasa específica del grupo (la de la celda).
  * La interfaz solo interpreta el resultado: nunca suma, resta ni deduce valores. No consulta ninguna otra fuente.
  */
 'use strict';
@@ -15,8 +17,8 @@
   };
   const POBLACION_REFERENCIA = { F: 'población femenina', M: 'población masculina' };
   const ORDEN_ESPERADO = ['periodos', 'territorios', 'sexos', 'selecciones', 'edades'];
-  const ORDEN_AJUSTADOS = ['periodos', 'territorios', 'selecciones'];
-  const ORDEN_SEXOS_AJUSTADOS = ['periodos', 'selecciones'];
+  const ORDEN_AJUSTADOS = ['periodos', 'territorios', 'sexos', 'selecciones'];
+  const ORDEN_SEXOS_AJUSTADOS = ['sexos', 'selecciones'];
 
   // =====================================================================================  modelo (sin DOM)
   function interpretar(c) {
@@ -48,36 +50,42 @@
       const c = datos.valores[pos('periodos', per)][pos('territorios', ter)][pos('sexos', sexo)][pos('selecciones', sel)][pos('edades', edad || 'total')];
       return interpretar(c);
     }
-    // Tasa ajustada por edad: ya calculada en el archivo (solo «todas las edades»; sin dimensión de sexo). Se lee tal cual.
+    // Tasa ajustada por edad: ya calculada en el archivo (solo «todas las edades»; por sexo del filtro). Se lee tal cual.
     const hayAjustadas = Array.isArray(datos.valores_ajustados) && Array.isArray(datos.sexos_ajustados);
     if (hayAjustadas && (JSON.stringify(datos.metadatos.orden_valores_ajustados) !== JSON.stringify(ORDEN_AJUSTADOS)
       || JSON.stringify(datos.metadatos.orden_sexos_ajustados) !== JSON.stringify(ORDEN_SEXOS_AJUSTADOS))) {
       throw new Error('El orden de las tasas ajustadas del archivo de datos no es el esperado.');
     }
-    /** { tasa, sexos } de la selección en el período y territorio, o null si el archivo no trae tasas ajustadas.
-     *  sexos ∈ ambos | mujeres | hombres: el conjunto con que se calculó (clasificación fija de la selección). */
-    function ajustada(per, ter, sel) {
+    /** { tasa, sexos } de la selección en el período, territorio y filtro de sexo, o null si el archivo no trae tasas
+     *  ajustadas. sexos ∈ ambos | mujeres | hombres: el conjunto con que se calculó; tasa y sexos son null con el sexo
+     *  contrario de una patología de un solo sexo (no se calcula). */
+    function ajustada(per, ter, sexo, sel) {
       if (!hayAjustadas) return null;
-      const tasa = datos.valores_ajustados[pos('periodos', per)][pos('territorios', ter)][pos('selecciones', sel)];
-      const sexos = datos.sexos_ajustados[pos('periodos', per)][pos('selecciones', sel)];
-      if (typeof tasa !== 'number' || !Object.prototype.hasOwnProperty.call(NOMBRE_SEXO, sexos)) {
-        throw new Error('Tasa ajustada con formato inesperado en los datos.');
-      }
+      const tasa = datos.valores_ajustados[pos('periodos', per)][pos('territorios', ter)][pos('sexos', sexo)][pos('selecciones', sel)];
+      const sexos = datos.sexos_ajustados[pos('sexos', sexo)][pos('selecciones', sel)];
+      const valida = (tasa === null && sexos === null)
+        || (typeof tasa === 'number' && Object.prototype.hasOwnProperty.call(NOMBRE_SEXO, sexos));
+      if (!valida) throw new Error('Tasa ajustada con formato inesperado en los datos.');
       return { tasa, sexos };
     }
-    return { meta: datos.metadatos, dim, ids, territorio, seleccion, celda, hayAjustadas, ajustada };
+    /** Celda que muestran las vistas de todas las edades: defunciones del archivo y tasa AJUSTADA por edad (null si
+     *  no se calcula). La tasa bruta de la celda no se usa. */
+    function celdaAjustada(per, ter, sexo, sel) {
+      const aj = ajustada(per, ter, sexo, sel);
+      return { n: celda(per, ter, sexo, sel).n, tasa: aj === null ? null : aj.tasa };
+    }
+    return { meta: datos.metadatos, dim, ids, territorio, seleccion, celda, hayAjustadas, ajustada, celdaAjustada };
   }
 
-  /** La tasa ajustada solo se muestra con el filtro de sexo para el que se calculó (ambos sexos, o el sexo del sitio).
-   *  Con otro filtro no existe: devuelve null y no se inventa una tasa por sexo. */
-  function ajustadaVisible(aj, sexoFiltro) { return aj !== null && aj.sexos === sexoFiltro ? aj.tasa : null; }
+  /** Valor de la tasa ajustada para mostrar: null si el archivo no la trae o si no se calcula para ese sexo. */
+  function ajustadaVisible(aj) { return aj === null ? null : aj.tasa; }
   function textoTasaAjustada(v) { return v === null ? '—' : fmtTasa.format(v); }
 
   const fmtEntero = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
   const fmtTasa = new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   function textoN(c) { return fmtEntero.format(c.n); }
-  function textoTasa(c) { return fmtTasa.format(c.tasa); }
+  function textoTasa(c) { return c.tasa === null ? '—' : fmtTasa.format(c.tasa); }
   function valorMetrica(c, metrica) { return metrica === 'tasa' ? c.tasa : c.n; }
   function textoMetrica(c, metrica) { return metrica === 'tasa' ? textoTasa(c) : textoN(c); }
 
@@ -120,10 +128,11 @@
   const MARCA_SEXO = { F: '♀', M: '♂' };
   function marcaSexoIndicador(sel) { return MARCA_SEXO[sel.sexo_indicador] || ''; }
 
-  /** Orden: valores de mayor a menor (empates en el orden original). */
+  /** Orden: valores de mayor a menor (empates en el orden original); las tasas no calculadas («—») al final. */
   function ordenarPorMetrica(items, metrica) {
+    const v = (c) => { const x = valorMetrica(c, metrica); return x === null ? -Infinity : x; };
     return items.map((it, i) => ({ it, i }))
-      .sort((a, b) => valorMetrica(b.it.celda, metrica) - valorMetrica(a.it.celda, metrica) || a.i - b.i)
+      .sort((a, b) => (v(b.it.celda) - v(a.it.celda)) || a.i - b.i)
       .map((x) => x.it);
   }
 
@@ -237,7 +246,7 @@
     $('b-descargar').addEventListener('click', descargarCsv);
     for (const grupo of document.querySelectorAll('.metrica[data-vista]')) {   // «Patologías según sexo» tiene los suyos
       const vista = grupo.dataset.vista;
-      for (const [valor, texto] of [['n', 'Defunciones'], ['tasa', 'Tasa bruta']]) {
+      for (const [valor, texto] of [['n', 'Defunciones'], ['tasa', vista === 'edad' ? 'Tasa específica por edad' : 'Tasa ajustada por edad']]) {
         const b = el('button', { type: 'button', 'aria-pressed': String(estado.metricas[vista] === valor), 'data-valor': valor }, texto);
         b.addEventListener('click', () => {
           estado.metricas[vista] = valor;
@@ -311,30 +320,31 @@
     $('i-titulo').textContent = titulo;
     $('i-preliminar').hidden = !contienePreliminar(M.meta, estado.periodo);
     $('filtros-resumen-texto').textContent = titulo;
-    const vN = $('i-n');
-    vN.textContent = textoN(c);
-    const vT = $('i-tasa');
-    vT.textContent = textoTasa(c);
-    $('i-tasa-nota').textContent = sel.sexo_indicador ? `Calculada sobre la ${POBLACION_REFERENCIA[sel.sexo_indicador]}.` : '';
-    const aj = M.ajustada(estado.periodo, estado.territorio, sel.id);
-    const vAj = ajustadaVisible(aj, estado.sexo);
+    $('i-n').textContent = textoN(c);
+    const aj = M.ajustada(estado.periodo, estado.territorio, estado.sexo, sel.id);
+    const vAj = ajustadaVisible(aj);
     $('i-tasa-ajustada').textContent = textoTasaAjustada(vAj);
-    $('i-tasa-ajustada-nota').textContent = notaAjustada(aj, vAj);
+    $('i-tasa-ajustada-nota').textContent = notaAjustada(sel, aj);
     dibujarVistas();
     guardarEnUrl();
     const est = $('estado');
     est.classList.add('solo-lectores');
     est.textContent = `Mostrando ${titulo.replace(/\*$/, '')}`
       + `${contienePreliminar(M.meta, estado.periodo) ? ' (incluye información preliminar)' : ''}. Defunciones: ${textoN(c)}.`
-      + ` Tasa bruta por 100.000 habitantes: ${textoTasa(c)}.`
-      + ` Tasa ajustada por edad por 100.000 habitantes: ${vAj === null ? `no disponible. ${notaAjustada(aj, vAj)}` : textoTasaAjustada(vAj)}.`;
+      + ` Tasa ajustada por edad por 100.000 habitantes: ${vAj === null ? `no disponible. ${notaAjustada(sel, aj)}` : textoTasaAjustada(vAj)}.`;
   }
 
   const FILTRO_SEXO = { ambos: 'Ambos', hombres: 'Hombres', mujeres: 'Mujeres' };
-  function notaAjustada(aj, valor) {
+  const SEXO_DE_INDICADOR = { F: 'mujeres', M: 'hombres' };
+  /** Cómo se calculó la tasa ajustada que se muestra (o por qué no hay). */
+  function notaAjustada(sel, aj) {
     if (aj === null) return 'No disponible en este archivo de datos.';
-    if (valor === null) return `Disponible solo con el filtro de sexo «${FILTRO_SEXO[aj.sexos]}», para el que se calcula.`;
-    if (aj.sexos === 'ambos') return 'Estandarización directa, ambos sexos.';
+    const ref = SEXO_DE_INDICADOR[sel.sexo_indicador];
+    if (aj.tasa === null) {
+      return `No se calcula: patología del sexo ${ref === 'mujeres' ? 'femenino' : 'masculino'}. Disponible con «Ambos» o «${FILTRO_SEXO[ref]}».`;
+    }
+    if (ref) return `Patología de un solo sexo: calculada sobre la ${POBLACION_REFERENCIA[sel.sexo_indicador]}, con ponderadores ${ref === 'mujeres' ? 'femeninos' : 'masculinos'}.`;
+    if (aj.sexos === 'ambos') return 'Estandarización directa, ambos sexos (población estándar conjunta).';
     return `Solo ${aj.sexos}: población y ponderadores ${aj.sexos === 'mujeres' ? 'femeninos' : 'masculinos'}.`;
   }
 
@@ -361,7 +371,7 @@
     const maxCaracteres = Math.max(8, Math.floor((xBarra - 14) / 6.9));
     const anchoValor = 84;
     const anchoBarra = ancho - xBarra - anchoValor;
-    const valores = items.map((x) => valorMetrica(x.celda, metrica));
+    const valores = items.map((x) => valorMetrica(x.celda, metrica) || 0);
     if (op.referencia) valores.push(op.referencia.valor);
     const max = Math.max(...valores, 0) || 1;
     const altoTotal = items.length * alto + (op.referencia ? 24 : 6);
@@ -373,7 +383,7 @@
       const etq = svgEl('text', { x: xBarra - 8, y: y + 18, 'text-anchor': 'end', class: `etiqueta${it.destacado ? ' destacada' : ''}` }, recortar(it.etiqueta, maxCaracteres));
       etq.append(svgEl('title', {}, it.etiqueta));
       svg.append(etq);
-      const v = valorMetrica(it.celda, metrica);
+      const v = valorMetrica(it.celda, metrica) || 0;
       let xTexto = xBarra + 6;
       if (v > 0) {
         const w = Math.max(2, (v / max) * anchoBarra);
@@ -401,7 +411,7 @@
     const altoBarras = alto - arriba - abajo;
     const paso = (ancho - izq * 2) / items.length;
     const anchoB = Math.min(64, paso * 0.68);
-    const valores = items.map((x) => valorMetrica(x.celda, metrica));
+    const valores = items.map((x) => valorMetrica(x.celda, metrica) || 0);
     const max = Math.max(...valores, 0) || 1;
     const svg = svgEl('svg', { viewBox: `0 0 ${ancho} ${alto}`, role: 'img', 'aria-label': op.descripcion || '' });
     defsPreliminar(svg);
@@ -409,7 +419,7 @@
     const compacto = items.length > 10;
     items.forEach((it, i) => {
       const cx = izq + paso * i + paso / 2;
-      const v = valorMetrica(it.celda, metrica);
+      const v = valorMetrica(it.celda, metrica) || 0;
       if (v > 0) {
         const h = Math.max(2, (v / max) * altoBarras);
         svg.append(svgEl('rect', { x: cx - anchoB / 2, y: base - h, width: anchoB, height: h, rx: 2, class: `barra${it.destacado ? ' destacada' : ''}${it.preliminar ? ' preliminar' : ''}` }));
@@ -426,13 +436,16 @@
 
   /** Con idDescripcion, la tabla se rotula con ese texto ya visible encima (aria-labelledby) y no repite el título en un
    *  caption; sin él, el título va en el caption. */
-  function tablaDatos(items, caption, encabezadoCategoria, idDescripcion) {
+  const TASA_AJUSTADA_100K = 'Tasa ajustada por edad por 100.000';
+  const TASA_ESPECIFICA_100K = 'Tasa específica por edad por 100.000';
+  const TASA_DESGLOSE_EDAD = 'Tasa por 100.000 (ajustada en «Todas las edades»; específica en cada grupo)';
+  function tablaDatos(items, caption, encabezadoCategoria, idDescripcion, encabezadoTasa) {
     const t = el('table', { 'aria-labelledby': idDescripcion || null });
     if (!idDescripcion) t.append(el('caption', {}, caption));
     const thead = el('thead');
     const trh = el('tr');
     trh.append(el('th', { scope: 'col' }, encabezadoCategoria), el('th', { scope: 'col', class: 'num' }, 'Defunciones'),
-      el('th', { scope: 'col', class: 'num' }, 'Tasa bruta por 100.000'));
+      el('th', { scope: 'col', class: 'num' }, encabezadoTasa || TASA_AJUSTADA_100K));
     thead.append(trh);
     const tbody = el('tbody');
     for (const it of items) {
@@ -448,20 +461,24 @@
     return t;
   }
 
-  function nombreMetrica(m) { return m === 'tasa' ? 'tasa bruta por 100.000 habitantes' : 'número de defunciones'; }
+  function nombreMetrica(m, vista) {
+    if (m !== 'tasa') return 'número de defunciones';
+    return vista === 'edad' ? 'tasa específica por edad por 100.000 habitantes' : 'tasa ajustada por edad por 100.000 habitantes';
+  }
 
   function dibujar(idVista, items, tipoGrafico, descripcion, categoria, opciones) {
     const metrica = estado.metricas[idVista];
     $(`d-${idVista}`).textContent = descripcion;
     const cont = $(`g-${idVista}`);
-    const desc = `${descripcion} Indicador: ${nombreMetrica(metrica)}.`;
+    const desc = `${descripcion} Indicador: ${nombreMetrica(metrica, idVista)}.`;
     const ancho = Math.max(280, Math.floor(cont.clientWidth || 760));
     // Con poco espacio por barra, las verticales pasan a horizontales para que las etiquetas sigan legibles.
     const vertical = tipoGrafico === 'vertical' && (ancho - 16) / items.length >= 34;
     cont.replaceChildren(vertical
       ? barrasVerticales(items, metrica, { descripcion: desc, ancho })
       : barrasHorizontales(items, metrica, Object.assign({ descripcion: desc, ancho }, opciones || {})));
-    $(`tb-${idVista}`).replaceChildren(tablaDatos(items, descripcion, categoria));
+    $(`tb-${idVista}`).replaceChildren(tablaDatos(items, descripcion, categoria, null,
+      idVista === 'edad' ? TASA_ESPECIFICA_100K : TASA_AJUSTADA_100K));
   }
 
   function contexto(sinPeriodo, sinTerritorio, sinSexo) {
@@ -476,18 +493,18 @@
   function itemsAnio() {
     const sel = seleccionActual();
     return M.dim.periodos.filter((p) => p !== M.meta.periodo_completo).map((p) => ({
-      etiqueta: p, celda: M.celda(p, estado.territorio, estado.sexo, sel), preliminar: esPreliminar(M.meta, p), destacado: p === estado.periodo,
+      etiqueta: p, celda: M.celdaAjustada(p, estado.territorio, estado.sexo, sel), preliminar: esPreliminar(M.meta, p), destacado: p === estado.periodo,
     }));
   }
   function itemsTerritorioVista() {
     const sel = seleccionActual();
     return comunasDeVista(M.dim, estado.territorio).map((t) => ({
-      etiqueta: t.nombre, celda: M.celda(estado.periodo, t.id, estado.sexo, sel), destacado: t.id === estado.territorio,
+      etiqueta: t.nombre, celda: M.celdaAjustada(estado.periodo, t.id, estado.sexo, sel), destacado: t.id === estado.territorio,
     }));
   }
   function itemsSexo() {
     const sel = seleccionActual();
-    return M.dim.sexos.map((s) => ({ etiqueta: NOMBRE_SEXO[s], celda: M.celda(estado.periodo, estado.territorio, s, sel), destacado: s === estado.sexo }));
+    return M.dim.sexos.map((s) => ({ etiqueta: NOMBRE_SEXO[s], celda: M.celdaAjustada(estado.periodo, estado.territorio, s, sel), destacado: s === estado.sexo }));
   }
   function itemsEdad() {
     const sel = seleccionActual();
@@ -496,12 +513,12 @@
     }));
   }
   /** Con «marcar», las patologías de un solo sexo llevan ♀ o ♂ (su tasa usa la población de ese sexo). Solo cambia el
-   *  rótulo: la celda es la misma del archivo. */
+   *  rótulo: la celda es la del archivo (defunciones y tasa ajustada). */
   function itemsPatologia(marcar) {
     const sel = seleccionActual();
     return patologiasDelTipo(M.dim, estado.tipo).map((s) => ({
       etiqueta: marcar && marcaSexoIndicador(s) ? `${s.etiqueta} ${marcaSexoIndicador(s)}` : s.etiqueta,
-      celda: M.celda(estado.periodo, estado.territorio, estado.sexo, s.id), destacado: s.id === sel,
+      celda: M.celdaAjustada(estado.periodo, estado.territorio, estado.sexo, s.id), destacado: s.id === sel,
     }));
   }
 
@@ -510,9 +527,9 @@
     const terr = ordenarPorMetrica(itemsTerritorioVista(), estado.metricas.territorio);
     const t = M.territorio.get(estado.territorio);
     const ambito = t.nivel === 'region' ? 'Comunas de la Región de Ñuble' : `Comunas de la ${M.territorio.get(t.nivel === 'provincia' ? t.id : t.padre).nombre}`;
-    const nuble = M.celda(estado.periodo, '16', estado.sexo, seleccionActual());
-    const referencia = estado.metricas.territorio === 'tasa'
-      ? { valor: valorMetrica(nuble, 'tasa'), texto: `Ñuble: ${textoTasa(nuble)}` } : null;
+    const nuble = M.celdaAjustada(estado.periodo, '16', estado.sexo, seleccionActual());
+    const referencia = estado.metricas.territorio === 'tasa' && nuble.tasa !== null
+      ? { valor: nuble.tasa, texto: `Ñuble: ${textoTasa(nuble)}` } : null;
     dibujar('territorio', terr, 'horizontal', `${ambito}, ${contexto(false, true)} Ordenadas de mayor a menor.`, 'Comuna', { referencia });
     dibujar('sexo', itemsSexo(), 'horizontal', `Comparación por sexo, ${contexto(false, false, true)}`, 'Sexo');
     dibujar('edad', itemsEdad(), 'vertical', `Por grupo de edad, ${contexto()} La tasa es específica del grupo de edad.`, 'Grupo de edad');
@@ -522,7 +539,7 @@
     // Leyenda de las marcas ♀ / ♂, sobre el gráfico, solo si el tipo seleccionado tiene patologías de un solo sexo.
     $('l-patologias').hidden = !haySexoUnico;
     dibujar('patologias', pats, 'horizontal', `Patologías del tipo seleccionado, ${contexto(false, false, false).replace(/^[^·]*· /, '')} `
-      + `Ordenadas por ${enTasa ? 'tasa bruta' : 'número de defunciones'}.`, 'Patología');
+      + `Ordenadas por ${enTasa ? 'tasa ajustada por edad' : 'número de defunciones'}.`, 'Patología');
     dibujarTablaDetalle();
   }
 
@@ -564,7 +581,7 @@
     const ajustar = estadoSexoPat.metrica === 'ajustada';
     // Por período: defunciones del sexo seleccionado (celda del archivo) y tasa ajustada del archivo (valores_ajustados),
     // calculada para estas patologías con ese mismo sexo (sexos_ajustados). No se recalcula nada.
-    const fila = (per) => ({ n: M.celda(per, ter, sx, sel.id).n, ajustada: ajustadaVisible(M.ajustada(per, ter, sel.id), sx) });
+    const fila = (per) => ({ n: M.celda(per, ter, sx, sel.id).n, ajustada: ajustadaVisible(M.ajustada(per, ter, sx, sel.id)) });
     const anios = M.dim.periodos.filter((p) => p !== M.meta.periodo_completo);
     const filas = anios.map((p) => ({ per: p, ...fila(p) }));
     const total = fila(M.meta.periodo_completo);
@@ -604,16 +621,16 @@
     switch (estado.desglose) {
       case 'anio':
         return M.dim.periodos.map((p) => ({ etiqueta: etiquetaPeriodo(M.meta, p).replace(' (preliminar)', ''), preliminar: esPreliminar(M.meta, p),
-          celda: M.celda(p, estado.territorio, estado.sexo, sel), destacado: p === estado.periodo }));
+          celda: M.celdaAjustada(p, estado.territorio, estado.sexo, sel), destacado: p === estado.periodo }));
       case 'territorio':
         return M.dim.territorios.map((t) => ({ etiqueta: t.nivel === 'comuna' ? `  ${t.nombre}` : t.nombre,
-          celda: M.celda(estado.periodo, t.id, estado.sexo, sel), destacado: t.id === estado.territorio }));
+          celda: M.celdaAjustada(estado.periodo, t.id, estado.sexo, sel), destacado: t.id === estado.territorio }));
       case 'sexo': return itemsSexo();
-      case 'edad': return [{ etiqueta: 'Todas las edades', celda: M.celda(estado.periodo, estado.territorio, estado.sexo, sel) }].concat(itemsEdad());
+      case 'edad': return [{ etiqueta: 'Todas las edades', celda: M.celdaAjustada(estado.periodo, estado.territorio, estado.sexo, sel) }].concat(itemsEdad());
       default: {
         const tipoId = estado.tipo.startsWith('sub:') ? 'D00-D48' : estado.tipo;
         const total = M.seleccion.get(tipoId);
-        return [{ etiqueta: etiquetaSeleccion(total), celda: M.celda(estado.periodo, estado.territorio, estado.sexo, tipoId), destacado: tipoId === sel }]
+        return [{ etiqueta: etiquetaSeleccion(total), celda: M.celdaAjustada(estado.periodo, estado.territorio, estado.sexo, tipoId), destacado: tipoId === sel }]
           .concat(itemsPatologia());
       }
     }
@@ -631,7 +648,8 @@
   function dibujarTablaDetalle() {
     const d = contextoDetalle();
     $('d-tabla').textContent = d;
-    $('tb-detalle').replaceChildren(tablaDatos(filasDetalle(), d, NOMBRE_DESGLOSE[estado.desglose], 'd-tabla'));
+    $('tb-detalle').replaceChildren(tablaDatos(filasDetalle(), d, NOMBRE_DESGLOSE[estado.desglose], 'd-tabla',
+      estado.desglose === 'edad' ? TASA_DESGLOSE_EDAD : TASA_AJUSTADA_100K));
   }
 
   function csvCampo(v) {
@@ -640,8 +658,7 @@
   }
   function descargarCsv() {
     const sel = M.seleccion.get(seleccionActual());
-    const aj = M.ajustada(estado.periodo, estado.territorio, sel.id);
-    const vAj = ajustadaVisible(aj, estado.sexo);
+    const encabezadoTasa = estado.desglose === 'edad' ? TASA_DESGLOSE_EDAD : TASA_AJUSTADA_100K;
     const lineas = [
       ['Visor de Mortalidad por Cáncer — Región de Ñuble'],
       ['Selección', etiquetaSeleccion(sel)],
@@ -649,17 +666,20 @@
       ['Territorio', nombreTerritorio(estado.territorio)],
       ['Sexo', NOMBRE_SEXO[estado.sexo]],
       ['Desglose', NOMBRE_DESGLOSE[estado.desglose]],
-      ['Tasa', 'Tasa bruta por 100.000 habitantes.'],
-      ['Tasa ajustada por edad por 100.000 habitantes (selección, período, territorio y sexo indicados; todas las edades)',
-        vAj === null ? `No disponible. ${notaAjustada(aj, vAj)}` : textoTasaAjustada(vAj)],
+      ['Tasa', estado.desglose === 'edad'
+        ? 'Tasa ajustada por edad por 100.000 habitantes en «Todas las edades»; tasa específica por edad en cada grupo de edad.'
+        : 'Tasa ajustada por edad por 100.000 habitantes (estandarización directa).'],
+      ['Método', M.meta.tasa_ajustada_metodo],
       ['Preliminar', M.meta.nota_preliminar],
       ['Fuente', `Defunciones: ${M.meta.fuente_defunciones}. Población: ${M.meta.fuente_poblacion}.`],
       ['Datos generados', M.meta.generado],
       [],
-      [NOMBRE_DESGLOSE[estado.desglose], 'Defunciones', 'Tasa bruta por 100.000', 'Observación'],
+      [NOMBRE_DESGLOSE[estado.desglose], 'Defunciones', encabezadoTasa, 'Observación'],
     ];
     for (const f of filasDetalle()) {
-      lineas.push([f.etiqueta.trim(), f.celda.n, textoTasa(f.celda), f.preliminar ? 'Preliminar' : '']);
+      const obs = [f.preliminar ? 'Preliminar' : '', f.celda.tasa === null ? 'Tasa ajustada no calculada: patología del otro sexo' : '']
+        .filter(Boolean).join('. ');
+      lineas.push([f.etiqueta.trim(), f.celda.n, textoTasa(f.celda), obs]);
     }
     const csv = '﻿' + lineas.map((l) => l.map(csvCampo).join(';')).join('\r\n') + '\r\n';
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -692,7 +712,7 @@
     $('p-denominador').replaceChildren(el('strong', {}, 'Patologías de un solo sexo: '), M.meta.nota_denominador);
     // Con tasas ajustadas en el archivo se describe su método; el texto «tasa_ajustada» de los metadatos es anterior.
     $('p-ajustada').replaceChildren(el('strong', {}, 'Tasa ajustada por edad: '), M.hayAjustadas
-      ? `${M.meta.tasa_ajustada_metodo} El origen de la población estándar de los ponderadores está en revisión documental.`
+      ? M.meta.tasa_ajustada_metodo
       : M.meta.tasa_ajustada);
     $('p-generado').textContent = `Datos generados el ${new Date(M.meta.generado).toLocaleString('es-CL')}.`;
     $('resultados').hidden = false;
